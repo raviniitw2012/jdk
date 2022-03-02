@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,13 +23,16 @@
 
 /**
  * @test
- * @bug 8193682
- * @summary Test Infinite loop while writing on closed GZipOutputStream , ZipOutputStream and JarOutputStream.
- * @run testng CloseDeflaterTest
+ * @bug 8193682 8278794
+ * @summary Test Infinite loop while writing on closed Deflater and Inflater.
+ * @run testng CloseInflaterDeflaterTest
  */
 import java.io.*;
 import java.util.Random;
 import java.util.jar.JarOutputStream;
+import java.util.zip.DeflaterInputStream;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.InflaterOutputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipOutputStream;
 import java.util.zip.ZipEntry;
@@ -40,7 +43,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.fail;
 
 
-public class CloseDeflaterTest {
+public class CloseInflaterDeflaterTest {
 
     //number of bytes to write
     private static final int INPUT_LENGTH= 512;
@@ -56,6 +59,18 @@ public class CloseDeflaterTest {
         @Override
         public void write(int b) throws IOException {}
     };
+    //InputStream that will throw an exception during a read operation
+    private static InputStream inStream = new InputStream() {
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            //throw exception during read
+            throw new IOException();
+        }
+        @Override
+        public int read(byte b[]) throws IOException { throw new IOException();}
+        @Override
+        public int read() throws IOException { throw new IOException();}
+    };
     private static byte[] inputBytes = new byte[INPUT_LENGTH];
     private static Random rand = new Random();
 
@@ -66,6 +81,36 @@ public class CloseDeflaterTest {
      return new Object[][] {
       { GZIPOutputStream.class, true },
       { GZIPOutputStream.class, false },
+     };
+    }
+
+    @DataProvider(name = "testdeflateroutputstream")
+    public Object[][] testDeflaterOutputStream() {
+     //testDeflaterOutputStream will close the DeflaterOutputStream using close() method when the boolean
+     //useCloseMethod is set to true and finish() method if the value is set to false
+     return new Object[][] {
+      { DeflaterOutputStream.class, true },
+      { DeflaterOutputStream.class, false },
+     };
+    }
+
+    @DataProvider(name = "testinflateroutputstream")
+    public Object[][] testInflaterOutputStream() {
+     //testInflaterOutputStream will close the InflaterOutputStream using close() method when the boolean
+     //useCloseMethod is set to true and finish() method if the value is set to false
+     return new Object[][] {
+      { InflaterOutputStream.class, true },
+      { InflaterOutputStream.class, false },
+     };
+    }
+
+    @DataProvider(name = "testdeflaterinputstream")
+    public Object[][] testDeflaterInputStream() {
+     //testDeflaterInputStream will close the DeflaterInputStream using close() method when the boolean
+     //useCloseMethod is set to true and finish() method if the value is set to false
+     return new Object[][] {
+      { DeflaterInputStream.class, true },
+      { DeflaterInputStream.class, false },
      };
     }
 
@@ -108,6 +153,85 @@ public class CloseDeflaterTest {
                 fail("Deflater closed exception not thrown");
             } catch (NullPointerException e) {
                 //expected , Deflater has been closed exception
+            }
+        }
+    }
+
+    //Test for infinite loop by writing bytes to closed DeflaterOutputStream
+    @Test(dataProvider = "testdeflateroutputstream")
+    public void testDeflaterOutputStream(Class<?> type, boolean useCloseMethod) throws IOException {
+        DeflaterOutputStream def = new DeflaterOutputStream(outStream);
+        try {
+            def.write(inputBytes, 0, INPUT_LENGTH);
+        } catch (IOException e) {
+            //expected
+        }
+        try {
+            def.finish();
+        } catch (IOException e) {
+            //expected
+        }
+        for (int i = 0; i < 3; i++) {
+            try {
+                //write on a closed DeflaterOutputStream
+                def.write(inputBytes, 0, INPUT_LENGTH);
+                fail("Deflater closed exception not thrown");
+            } catch (NullPointerException e) {
+                //expected , Deflater has been closed exception
+            }
+        }
+    }
+
+    //Test for infinite loop by reading bytes from closed DeflaterInputStream
+    @Test(dataProvider = "testdeflaterinputstream")
+    public void testDeflaterInputStream(Class<?> type, boolean useCloseMethod) throws IOException {
+        DeflaterInputStream def = new DeflaterInputStream(inStream);
+        try {
+            def.read(inputBytes, 0, INPUT_LENGTH);
+        } catch (IOException e) {
+            //expected
+        }
+        try {
+            def.close();
+        } catch (IOException e) {
+            //expected
+        }
+        for (int i = 0; i < 3; i++) {
+            try {
+                //read from a closed DeflaterInputStream
+                def.read(inputBytes, 0, INPUT_LENGTH);
+                fail("Deflater closed exception not thrown");
+            } catch (IOException e) {
+                //expected , Deflater has been closed exception
+            }
+        }
+    }
+
+    //Test for infinite loop by writing bytes to closed InflaterOutputStream
+    @Test(dataProvider = "testinflateroutputstream")
+    public void testInflaterOutputStream(Class<?> type, boolean useCloseMethod) throws IOException {
+        InflaterOutputStream inf = new InflaterOutputStream(outStream);
+        try {
+            inf.write(inputBytes, 0, INPUT_LENGTH);
+        } catch (IOException e) {
+            //expected
+        }
+        try {
+            if(useCloseMethod) {
+               inf.close();
+            } else {
+               inf.finish();
+            }
+        } catch (IOException e) {
+            //expected
+        }
+        for (int i = 0; i < 3; i++) {
+            try {
+                //write on a closed InflaterOutputStream
+                inf.write(inputBytes, 0, INPUT_LENGTH);
+                fail("Inflater closed exception not thrown");
+            } catch (IOException e) {
+                //expected , Inflater has been closed exception
             }
         }
     }
