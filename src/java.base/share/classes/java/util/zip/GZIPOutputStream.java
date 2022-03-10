@@ -177,7 +177,7 @@ public class GZIPOutputStream extends DeflaterOutputStream {
                 writeTrailer(trailer, 0);
                 out.write(trailer);
             } catch (IOException e) {
-                if (def.shouldFinish() && usesDefaultDeflater)
+                if (usesDefaultDeflater)
                     def.end();
                 throw e;
             }

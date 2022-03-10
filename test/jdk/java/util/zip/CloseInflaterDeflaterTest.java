@@ -40,7 +40,7 @@ import java.util.zip.ZipEntry;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import static org.testng.Assert.fail;
+import static org.testng.Assert.assertThrows;
 
 
 public class CloseInflaterDeflaterTest {
@@ -115,12 +115,12 @@ public class CloseInflaterDeflaterTest {
     }
 
     @DataProvider(name = "testzipjarinput")
-    public Object[][] testZipAndJarInput() {
-     //testZipAndJarInput will perfrom write/closeEntry operations on JarOutputStream when the boolean
-     //useJar is set to true and on ZipOutputStream if the value is set to false
+    public Object[][] testZipAndJarInput() throws IOException{
+     //testZipAndJarInput will perfrom write/closeEntry operations on
+     //JarOutputStream and ZipOutputStream
      return new Object[][] {
-      { JarOutputStream.class, true },
-      { ZipOutputStream.class, false },
+      { new JarOutputStream(outStream)},
+      { new ZipOutputStream(outStream)},
      };
     }
 
@@ -135,137 +135,72 @@ public class CloseInflaterDeflaterTest {
     @Test(dataProvider = "testgzipinput")
     public void testGZip(Class<?> type, boolean useCloseMethod) throws IOException {
         GZIPOutputStream zip = new GZIPOutputStream(outStream);
-        try {
-            zip.write(inputBytes, 0, INPUT_LENGTH);
+        zip.write(inputBytes, 0, INPUT_LENGTH);
+        assertThrows(IOException.class, () -> {
             //close zip
-            if(useCloseMethod) {
-               zip.close();
+            if (useCloseMethod) {
+                zip.close();
             } else {
-               zip.finish();
+                zip.finish();
             }
-        } catch (IOException e) {
-            //expected
-        }
-        for (int i = 0; i < 3; i++) {
-            try {
-                //write on a closed GZIPOutputStream
-                zip.write(inputBytes, 0, INPUT_LENGTH);
-                fail("Deflater closed exception not thrown");
-            } catch (NullPointerException e) {
-                //expected , Deflater has been closed exception
-            }
-        }
+        });
+        //write on a closed GZIPOutputStream, closed Deflater IOException expected
+        assertThrows(NullPointerException.class , () -> zip.write(inputBytes, 0, INPUT_LENGTH));
     }
 
     //Test for infinite loop by writing bytes to closed DeflaterOutputStream
     @Test(dataProvider = "testdeflateroutputstream")
     public void testDeflaterOutputStream(Class<?> type, boolean useCloseMethod) throws IOException {
         DeflaterOutputStream def = new DeflaterOutputStream(outStream);
-        try {
-            def.write(inputBytes, 0, INPUT_LENGTH);
-        } catch (IOException e) {
-            //expected
-        }
-        try {
-            def.finish();
-        } catch (IOException e) {
-            //expected
-        }
-        for (int i = 0; i < 3; i++) {
-            try {
-                //write on a closed DeflaterOutputStream
-                def.write(inputBytes, 0, INPUT_LENGTH);
-                fail("Deflater closed exception not thrown");
-            } catch (NullPointerException e) {
-                //expected , Deflater has been closed exception
+        assertThrows(IOException.class , () -> def.write(inputBytes, 0, INPUT_LENGTH));
+        assertThrows(IOException.class, () -> {
+            //close deflater
+            if (useCloseMethod) {
+                def.close();
+            } else {
+                def.finish();
             }
-        }
+        });
+        //write on a closed DeflaterOutputStream, closed Deflater IOException expected
+        assertThrows(NullPointerException.class , () -> def.write(inputBytes, 0, INPUT_LENGTH));
     }
 
     //Test for infinite loop by reading bytes from closed DeflaterInputStream
     @Test(dataProvider = "testdeflaterinputstream")
     public void testDeflaterInputStream(Class<?> type, boolean useCloseMethod) throws IOException {
         DeflaterInputStream def = new DeflaterInputStream(inStream);
-        try {
-            def.read(inputBytes, 0, INPUT_LENGTH);
-        } catch (IOException e) {
-            //expected
-        }
-        try {
-            def.close();
-        } catch (IOException e) {
-            //expected
-        }
-        for (int i = 0; i < 3; i++) {
-            try {
-                //read from a closed DeflaterInputStream
-                def.read(inputBytes, 0, INPUT_LENGTH);
-                fail("Deflater closed exception not thrown");
-            } catch (IOException e) {
-                //expected , Deflater has been closed exception
-            }
-        }
+        assertThrows(IOException.class , () -> def.read(inputBytes, 0, INPUT_LENGTH));
+        //close deflater
+        def.close();
+        //read from a closed DeflaterInputStream, closed Deflater IOException expected
+        assertThrows(IOException.class , () -> def.read(inputBytes, 0, INPUT_LENGTH));
     }
 
     //Test for infinite loop by writing bytes to closed InflaterOutputStream
     @Test(dataProvider = "testinflateroutputstream")
     public void testInflaterOutputStream(Class<?> type, boolean useCloseMethod) throws IOException {
         InflaterOutputStream inf = new InflaterOutputStream(outStream);
-        try {
-            inf.write(inputBytes, 0, INPUT_LENGTH);
-        } catch (IOException e) {
-            //expected
-        }
-        try {
-            if(useCloseMethod) {
-               inf.close();
+        assertThrows(IOException.class , () -> inf.write(inputBytes, 0, INPUT_LENGTH));
+        assertThrows(IOException.class , () -> {
+            //close inflater
+            if (useCloseMethod) {
+                inf.close();
             } else {
-               inf.finish();
+                inf.finish();
             }
-        } catch (IOException e) {
-            //expected
-        }
-        for (int i = 0; i < 3; i++) {
-            try {
-                //write on a closed InflaterOutputStream
-                inf.write(inputBytes, 0, INPUT_LENGTH);
-                fail("Inflater closed exception not thrown");
-            } catch (IOException e) {
-                //expected , Inflater has been closed exception
-            }
-        }
+        });
+        //write on a closed InflaterOutputStream , closed Inflater IOException expected
+        assertThrows(IOException.class , () -> inf.write(inputBytes, 0, INPUT_LENGTH));
     }
 
     //Test for infinite loop by writing bytes to closed ZipOutputStream/JarOutputStream
     @Test(dataProvider = "testzipjarinput")
-    public void testZipCloseEntry(Class<?> type,boolean useJar) throws IOException {
-        ZipOutputStream zip = null;
-        if(useJar) {
-           zip = new JarOutputStream(outStream);
-        } else {
-           zip = new ZipOutputStream(outStream);
-        }
-        try {
-            zip.putNextEntry(new ZipEntry(""));
-        } catch (IOException e) {
-            //expected to throw IOException since putNextEntry calls write method
-        }
-        try {
-            zip.write(inputBytes, 0, INPUT_LENGTH);
-            //close zip entry
-            zip.closeEntry();
-        } catch (IOException e) {
-            //expected
-        }
-        for (int i = 0; i < 3; i++) {
-            try {
-                //write on a closed ZipOutputStream
-                zip.write(inputBytes, 0, INPUT_LENGTH);
-                fail("Deflater closed exception not thrown");
-            } catch (NullPointerException e) {
-                //expected , Deflater has been closed exception
-            }
-        }
+    public void testZipCloseEntry(ZipOutputStream zip) throws IOException {
+        assertThrows(IOException.class , () -> zip.putNextEntry(new ZipEntry("")));
+        zip.write(inputBytes, 0, INPUT_LENGTH);
+        assertThrows(IOException.class , () -> zip.closeEntry());
+        //write on a closed ZipOutputStream , Deflater closed NullPointerException expected
+        assertThrows(NullPointerException.class , () -> zip.write(inputBytes, 0, INPUT_LENGTH));
     }
 
 }

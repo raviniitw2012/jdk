@@ -226,7 +226,7 @@ public class DeflaterOutputStream extends FilterOutputStream {
                     deflate();
                 }
             } catch(IOException e) {
-                if (def.shouldFinish() && usesDefaultDeflater)
+                if (usesDefaultDeflater)
                     def.end();
                 throw e;
             }
