@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -1391,7 +1391,11 @@ public class Locations {
                         log.error(Errors.NoZipfsForArchive(p));
                         return null;
                     }
-                    try (FileSystem fs = jarFSProvider.newFileSystem(p, fsEnv)) {
+                    try {
+                        FileSystem fs = p.getFileSystem();
+                        if (fs == null || !Files.exists(fs.getPath("module-info.class"))) {
+                            fs = jarFSProvider.newFileSystem(p, fsEnv);
+                        }
                         Path moduleInfoClass = fs.getPath("module-info.class");
                         if (Files.exists(moduleInfoClass)) {
                             String moduleName = readModuleName(moduleInfoClass);

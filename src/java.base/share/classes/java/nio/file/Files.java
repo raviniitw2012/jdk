@@ -80,7 +80,7 @@ import java.util.stream.StreamSupport;
 import jdk.internal.util.ArraysSupport;
 import sun.nio.ch.FileChannelImpl;
 import sun.nio.cs.UTF_8;
-import sun.nio.fs.AbstractFileSystemProvider;
+import sun.nio.fs.ExtendedFileSystemProvider;
 
 /**
  * This class consists exclusively of static methods that operate on files,
@@ -2314,8 +2314,8 @@ public final class Files {
     public static boolean isDirectory(Path path, LinkOption... options) {
         if (options.length == 0) {
             FileSystemProvider provider = provider(path);
-            if (provider instanceof AbstractFileSystemProvider)
-                return ((AbstractFileSystemProvider)provider).isDirectory(path);
+            if (provider instanceof ExtendedFileSystemProvider)
+                return ((ExtendedFileSystemProvider)provider).isDirectory(path);
         }
 
         try {
@@ -2357,8 +2357,8 @@ public final class Files {
     public static boolean isRegularFile(Path path, LinkOption... options) {
         if (options.length == 0) {
             FileSystemProvider provider = provider(path);
-            if (provider instanceof AbstractFileSystemProvider)
-                return ((AbstractFileSystemProvider)provider).isRegularFile(path);
+            if (provider instanceof ExtendedFileSystemProvider)
+                return ((ExtendedFileSystemProvider)provider).isRegularFile(path);
         }
 
         try {
@@ -2519,8 +2519,8 @@ public final class Files {
     public static boolean exists(Path path, LinkOption... options) {
         if (options.length == 0) {
             FileSystemProvider provider = provider(path);
-            if (provider instanceof AbstractFileSystemProvider)
-                return ((AbstractFileSystemProvider)provider).exists(path);
+            if (provider instanceof ExtendedFileSystemProvider)
+                return ((ExtendedFileSystemProvider)provider).exists(path);
         }
 
         try {

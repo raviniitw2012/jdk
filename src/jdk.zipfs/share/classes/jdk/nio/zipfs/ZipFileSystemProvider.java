@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2021, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -47,14 +47,31 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.zip.ZipException;
+import sun.nio.fs.ExtendedFileSystemProvider;
 
 /**
  * @author Xueming Shen, Rajendra Gutupalli, Jaya Hangal
  */
-public class ZipFileSystemProvider extends FileSystemProvider {
+public class ZipFileSystemProvider extends FileSystemProvider
+                implements ExtendedFileSystemProvider {
     private final Map<Path, ZipFileSystem> filesystems = new HashMap<>();
 
     public ZipFileSystemProvider() {}
+
+    @Override
+    public boolean exists(Path path) {
+         return toZipPath(path).exists();
+    }
+
+    @Override
+    public boolean isRegularFile(Path path) {
+        return toZipPath(path).isRegularFile();
+    }
+
+    @Override
+    public boolean isDirectory(Path path) {
+        return toZipPath(path).isDirectory();
+    }
 
     @Override
     public String getScheme() {

@@ -36,12 +36,14 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -571,20 +573,28 @@ public class JavacFileManager extends BaseFileManager implements StandardJavaFil
             }
             packages = new HashMap<>();
             for (Path root : fileSystem.getRootDirectories()) {
-                Files.walkFileTree(root, NO_FILE_VISIT_OPTIONS, Integer.MAX_VALUE,
-                        new SimpleFileVisitor<Path>() {
-                            @Override
-                            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                                if (isValid(dir.getFileName())) {
-                                    packages.put(new RelativeDirectory(root.relativize(dir).toString()), dir);
-                                    return FileVisitResult.CONTINUE;
-                                } else {
-                                    return FileVisitResult.SKIP_SUBTREE;
-                                }
-                            }
-                        });
+                walkDirectories(root, root);
             }
         }
+
+        private void walkDirectories(Path root, Path p) throws IOException {
+            //avoid calling Files.isDirectory, Files.exists or another other method
+            //that internally might use Files.readAttributes, as that may cause
+            //additional I/O
+            if (!isValid(p.getFileName())) {
+                //note this path is likely to include most non-directories, as those are
+                //likely to include a file extension, and hence won't pass the isValid check
+                return ;
+            }
+            packages.put(new RelativeDirectory(root.relativize(p).toString()), p);
+            try (DirectoryStream<Path> ds = Files.newDirectoryStream(p)) {
+                for (Path n : ds) {
+                    walkDirectories(root, n);
+                }
+            } catch (NotDirectoryException ex) {
+                //ignore...
+             }
+         }
 
         /**
          * Insert all files in subdirectory subdirectory of this archive

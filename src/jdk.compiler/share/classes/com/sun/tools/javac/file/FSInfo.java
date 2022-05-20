@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,10 @@
 
 package com.sun.tools.javac.file;
 
+import java.io.InputStream;
+import java.nio.file.FileSystem;
 import java.io.IOError;
+import java.net.URI;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
@@ -34,6 +37,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.spi.FileSystemProvider;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -95,37 +99,45 @@ public class FSInfo {
     }
 
     public List<Path> getJarClassPath(Path file) throws IOException {
-        try (JarFile jarFile = new JarFile(file.toFile())) {
-            Manifest man = jarFile.getManifest();
-            if (man == null)
-                return Collections.emptyList();
-
-            Attributes attr = man.getMainAttributes();
-            if (attr == null)
-                return Collections.emptyList();
-
-            String path = attr.getValue(Attributes.Name.CLASS_PATH);
-            if (path == null)
-                return Collections.emptyList();
-
-            List<Path> list = new ArrayList<>();
-            URL base = file.toUri().toURL();
-
-            for (StringTokenizer st = new StringTokenizer(path);
-                 st.hasMoreTokens(); ) {
-                String elt = st.nextToken();
-                try {
-                    URL url = tryResolveFile(base, elt);
-                    if (url != null) {
-                        list.add(Path.of(url.toURI()));
-                    }
-                } catch (URISyntaxException ex) {
-                    throw new IOException(ex);
-                }
+        FileSystem fs = file.getFileSystem();
+        Path mf = fs.getPath("META-INF/MANIFEST.MF");
+        Manifest man = null;
+        if (Files.exists(mf)) {
+            try (InputStream in = Files.newInputStream(mf)) {
+                man = new Manifest( in );
             }
-
-            return list;
+        } else {
+            try (JarFile jarFile = new JarFile(file.toFile())) {
+                man = jarFile.getManifest();
+            }
         }
+        if (man == null)
+            return Collections.emptyList();
+
+        Attributes attr = man.getMainAttributes();
+        if (attr == null)
+            return Collections.emptyList();
+
+        String path = attr.getValue(Attributes.Name.CLASS_PATH);
+        if (path == null)
+            return Collections.emptyList();
+
+        List < Path > list = new ArrayList < > ();
+        URL base = file.toUri().toURL();
+
+        for (StringTokenizer st = new StringTokenizer(path); st.hasMoreTokens();) {
+            String elt = st.nextToken();
+            try {
+                URL url = tryResolveFile(base, elt);
+                if (url != null) {
+                    list.add(Paths.get(url.toURI()));
+                }
+            } catch (URISyntaxException ex) {
+                throw new IOException(ex);
+            }
+        }
+
+        return list;
     }
 
     /**

@@ -1348,6 +1348,16 @@ class ZipFileSystem extends FileSystem {
         }
     }
 
+    boolean isRegularFile(byte[] path) {
+        beginRead();
+        try {
+            IndexNode n = getInode(path);
+            return n != null && !(n.isDir());
+        } finally {
+            endRead();
+        }
+    }
+
     // ZIP directory has two issues:
     // (1) ZIP spec does not require the ZIP file to include
     //     directory entry
